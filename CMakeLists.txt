@@ -16,5 +16,7 @@ set(GLFW_LIB ${EXTERNAL_DIR}/glfw/lib-vc2022/glfw3.lib)
 
 include_directories(${EXTERNAL_DIR}/glm)
 
+include_directories(${EXTERNAL_DIR})
+
 add_executable (vulkan_antics "main.cpp")
 target_link_libraries(vulkan_antics PRIVATE Vulkan::Vulkan ${GLFW_LIB})
