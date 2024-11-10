@@ -14,7 +14,6 @@
 #include <tiny_obj_loader.h>
 
 #include <unordered_map>
-#include <chrono>
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
@@ -210,6 +209,24 @@ private:
     VkDeviceMemory colorImageMemory;
     VkImageView colorImageView;
 
+    glm::vec3 cameraPos = glm::vec3(0.0f, 3.0f, 0.0f);
+    glm::vec3 cameraFront = glm::vec3(0.0f, -1.0f, 0.0f);
+    glm::vec3 cameraUp = glm::vec3(0.0f, 0.0f, 1.0f);
+
+    //mouse input related stuff
+    bool firstMouse = true;
+    float pitch = 0.0f;
+    float yaw = -90.0f;
+    float lastX = WIDTH / 2, lastZ = HEIGHT / 2;
+
+    float deltaTime = 0.0f;
+    float lastFrame = 0.0f;
+
+    //angle for model rotation
+    float angle = 0.0f;
+
+    bool fullscreen = false;
+
     void initWindow() {
         glfwInit();
 
@@ -252,10 +269,19 @@ private:
         double lastTime = glfwGetTime();
         int nFrames = 0;
 
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        glfwSetWindowUserPointer(window, this);
+        glfwSetCursorPosCallback(window, cursorPositionCallback);
+
         while (!glfwWindowShouldClose(window)) {
+            processInput(window);
             glfwPollEvents();
             drawFrame();
 
+            float currentFrame = static_cast<float>(glfwGetTime());
+            deltaTime = currentFrame - lastFrame;
+            lastFrame = currentFrame;
+            
             double currentTime = glfwGetTime();
             nFrames++;
             if (currentTime - lastTime >= 1.0) {
@@ -314,6 +340,76 @@ private:
 
         glfwDestroyWindow(window);
         glfwTerminate();
+    }
+
+    static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
+    {
+        HelloTriangleApplication* instance = static_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+        if (instance) {
+            instance->handleCursor(xpos, ypos);
+        }
+    }
+
+    void handleCursor(double xpos, double ypos) {
+        // source: https://learnopengl.com/Getting-started/Camera
+        if (firstMouse)
+        {
+            lastX = xpos;
+            lastZ = ypos;
+            firstMouse = false;
+        }
+
+        float xOffset = xpos - lastX;
+        float zOffset = lastZ - ypos;
+        lastX = xpos;
+        lastZ = ypos;
+
+        float sensitivity = 0.1f;
+        xOffset *= sensitivity;
+        zOffset *= sensitivity;
+
+        yaw += xOffset;
+        pitch += zOffset;
+
+        if (pitch > 89.0f)
+            pitch = 89.0f;
+        if (pitch < -89.0f)
+            pitch = -89.0f;
+
+        glm::vec3 front;
+        front.x = -1.0f * cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        front.z = sin(glm::radians(pitch));
+        front.y = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+        cameraFront = glm::normalize(front);
+    }
+
+    void processInput(GLFWwindow* window) {
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(window, true);
+        }
+        const float cameraSpeed = deltaTime * 2.5f;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+            cameraPos += cameraSpeed * cameraFront;
+        }
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+            cameraPos -= cameraSpeed * cameraFront;
+        }
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+            cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        }
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+            cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        }
+        if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+            if (fullscreen == false) {
+                glfwMaximizeWindow(window);
+                fullscreen = true;
+            }
+            else {
+                glfwRestoreWindow(window);
+                fullscreen = false;
+            }
+        }
     }
 
     void loadModel() {
@@ -748,15 +844,14 @@ private:
     }
 
     void updateUniformBuffer(uint32_t currentImage) {
-        static auto startTime = std::chrono::high_resolution_clock::now();
-
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        angle += deltaTime * glm::radians(30.0f);
 
         UniformBufferObject ubo{};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(30.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+        ubo.model = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0.0f, 0.0f, 1.0f));
+        //ubo.model = glm::mat4(1.0f);
+        //ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 30.0f);
         ubo.proj[1][1] *= -1;
 
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
@@ -1553,7 +1648,7 @@ private:
     }
 
     VkSampleCountFlagBits getMaxUsableSampleCount() {
-        /*VkPhysicalDeviceProperties physicalDeviceProperties;
+        VkPhysicalDeviceProperties physicalDeviceProperties;
         vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
 
         VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
@@ -1563,7 +1658,7 @@ private:
         if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
         if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
         if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
-        */
+        
         return VK_SAMPLE_COUNT_1_BIT;
     }
 
