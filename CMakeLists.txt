@@ -18,5 +18,7 @@ include_directories(${EXTERNAL_DIR}/glm)
 
 include_directories(${EXTERNAL_DIR})
 
-add_executable (vulkan_antics "main.cpp")
+file(GLOB_RECURSE SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+
+add_executable (vulkan_antics ${SOURCES})
 target_link_libraries(vulkan_antics PRIVATE Vulkan::Vulkan ${GLFW_LIB})
