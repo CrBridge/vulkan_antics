@@ -48,7 +48,5 @@ namespace va {
 		void createTextureImageView();
 		void createTextureSampler();
 		void updateDescriptor();
-		void createDescriptorSetLayout();
-		void createDescriptorSet();
 	};
 }

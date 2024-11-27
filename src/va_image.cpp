@@ -18,8 +18,6 @@ namespace va {
 		createTextureImageView();
 		createTextureSampler();
 		updateDescriptor();
-		createDescriptorSetLayout();
-		createDescriptorSet();
 	}
 
 	VaImage::~VaImage() {
@@ -39,7 +37,7 @@ namespace va {
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		if (!pixels) {
-			throw std::runtime_error("failed to load texture image!");
+			throw std::runtime_error("failed to load texture image");
 		}
 
 		VaBuffer stagingBuffer{
@@ -160,54 +158,5 @@ namespace va {
 		imageDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageDescriptorInfo.imageView = textureImageView;
 		imageDescriptorInfo.sampler = textureSampler;
-	}
-
-	void VaImage::createDescriptorSetLayout() {
-		VkDescriptorSetLayoutBinding binding{};
-		binding.binding = 1;
-		binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		binding.descriptorCount = 1;
-		binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-		binding.pImmutableSamplers = nullptr;
-
-		VkDescriptorSetLayoutCreateInfo layoutCreateInfo{};
-		layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutCreateInfo.bindingCount = 1;
-		layoutCreateInfo.pBindings = &binding;
-
-		if (vkCreateDescriptorSetLayout(vaDevice.device(), &layoutCreateInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create descriptor set layout for image!");
-		}
-	}
-
-	void VaImage::createDescriptorSet() {
-		VkDescriptorSetAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = descriptorPool->getDescriptorPool();  // You should already have a descriptor pool
-		allocInfo.descriptorSetCount = 1;
-		allocInfo.pSetLayouts = &descriptorSetLayout;
-
-		if (vkAllocateDescriptorSets(vaDevice.device(), &allocInfo, &descriptorSet) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate descriptor set for image!");
-		}
-
-		// Prepare the image info for the descriptor set
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageView = textureImageView;  // The image view of the texture
-		imageInfo.sampler = textureSampler;      // The sampler associated with the texture
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // The layout for reading the texture in the shader
-
-		// Create the descriptor write
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = descriptorSet;
-		descriptorWrite.dstBinding = 1;  // The binding location in the shader (must match)
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorWrite.descriptorCount = 1;
-		descriptorWrite.pImageInfo = &imageInfo;
-
-		// Update the descriptor set with the image info
-		vkUpdateDescriptorSets(vaDevice.device(), 1, &descriptorWrite, 0, nullptr);
 	}
 }

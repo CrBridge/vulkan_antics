@@ -29,5 +29,4 @@ namespace va {
 			},
 			{translation.x, translation.y, translation.z, 1.0f} };
 	}
-	//might need a function here to assign texture to game object using VaImage functionality
 }
