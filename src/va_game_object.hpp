@@ -21,6 +21,7 @@ namespace va {
 	public:
 		std::shared_ptr<VaModel> model{};
 		std::shared_ptr<VaImage> texture{};
+		VkDescriptorSet descriptorSet{};
 		glm::vec3 color{};
 		TransformComponent transform{};
 

@@ -25,8 +25,8 @@ namespace va {
 		VaDevice& vaDevice;
 		std::unique_ptr<VaPipeline> vaPipeline;
 		VkPipelineLayout pipelineLayout;
+		VkDescriptorSetLayout objDescriptorSetLayout;
 
-		void createDescriptorSetLayout();
 		void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
 		void createPipeline(VkRenderPass renderPass);
 	};

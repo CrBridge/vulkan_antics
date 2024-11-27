@@ -7,6 +7,10 @@
 
 #include <stdexcept>
 
+#ifndef FILE_DIR
+#define FILE_DIR "../../../"
+#endif
+
 namespace va {
 	VaImage::VaImage(VaDevice& device, std::shared_ptr<VaDescriptorPool> pool, const std::string& filepath) 
 		: vaDevice{ device }, descriptorPool{ pool } {
@@ -28,7 +32,10 @@ namespace va {
 	void VaImage::createTextureImage(const std::string& filepath) {
 		int texWidth, texHeight, texChannels;
 		stbi_set_flip_vertically_on_load(true);
-		stbi_uc* pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+		std::string filepathAdj = FILE_DIR + filepath;
+
+		stbi_uc* pixels = stbi_load(filepathAdj.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		if (!pixels) {
@@ -194,7 +201,7 @@ namespace va {
 		VkWriteDescriptorSet descriptorWrite{};
 		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrite.dstSet = descriptorSet;
-		descriptorWrite.dstBinding = 0;  // The binding location in the shader (must match)
+		descriptorWrite.dstBinding = 1;  // The binding location in the shader (must match)
 		descriptorWrite.dstArrayElement = 0;
 		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		descriptorWrite.descriptorCount = 1;

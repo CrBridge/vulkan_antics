@@ -28,9 +28,13 @@ namespace va {
 		VaDevice vaDevice{ vaWindow };
 		VaRenderer vaRenderer{ vaWindow, vaDevice };
 
+		std::vector<std::unique_ptr<VaBuffer>> globalUboBuffers;
+		std::unique_ptr<VaDescriptorSetLayout> globalSetLayout{};
+		std::vector<VkDescriptorSet> globalDescriptorSets;
 		std::unique_ptr<VaDescriptorPool> globalPool{};
 		std::shared_ptr<VaDescriptorPool> texturePool{};
 		VaGameObject::Map gameObjects;
+		std::shared_ptr<VaImage> defaultTexture{};
 
 		void loadGameObjects();
 	};

@@ -29,7 +29,31 @@ namespace va {
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalSetLayout};
+		VkDescriptorSetLayoutBinding objLayoutBinding1{};
+		objLayoutBinding1.binding = 0;
+		objLayoutBinding1.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		objLayoutBinding1.descriptorCount = 1;
+		objLayoutBinding1.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+
+		VkDescriptorSetLayoutBinding objLayoutBinding2{};
+		objLayoutBinding2.binding = 1;
+		objLayoutBinding2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		objLayoutBinding2.descriptorCount = 1;
+		objLayoutBinding2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		objLayoutBinding2.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding bindings[] = { objLayoutBinding1, objLayoutBinding2 };
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 2;
+		layoutInfo.pBindings = bindings;
+
+		if (vkCreateDescriptorSetLayout(vaDevice.device(), &layoutInfo, nullptr, &objDescriptorSetLayout) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create descriptor set layout for objects!");
+		}
+		
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{ globalSetLayout, objDescriptorSetLayout };
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -85,14 +109,16 @@ namespace va {
 				sizeof(SimplePushConstantData),
 				&push);
 
-			vkCmdBindDescriptorSets(
-				frameInfo.commandBuffer,
-				VK_PIPELINE_BIND_POINT_GRAPHICS,
-				pipelineLayout,
-				1, 1, // Set 1: object descriptor set
-				&obj.texture->getDescriptor(),
-				0, nullptr);
-
+			if (obj.texture) {
+				vkCmdBindDescriptorSets(
+					frameInfo.commandBuffer,
+					VK_PIPELINE_BIND_POINT_GRAPHICS,
+					pipelineLayout,
+					1, 1,
+					&obj.descriptorSet,
+					0, nullptr);
+			}
+		
 			obj.model->bind(frameInfo.commandBuffer);
 			obj.model->draw(frameInfo.commandBuffer);
 		}
