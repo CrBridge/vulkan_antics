@@ -2,6 +2,7 @@
 
 #include "va_camera.hpp"
 #include "va_game_object.hpp"
+#include "va_cubemap.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -13,5 +14,6 @@ namespace va {
 		VaCamera& camera;
 		VkDescriptorSet globalDescriptorSet;
 		VaGameObject::Map& gameObjects;
+		std::shared_ptr<VaCubemap> cubemap;
 	};
 }

@@ -28,6 +28,6 @@ void main() {
 	vec3 ambientLight = ubo.ambientLightColor.xyz * ubo.ambientLightColor.w;
 	vec3 diffuseLight = lightColor * max(dot(normalize(fragNormalWorld), normalize(directionToLight)), 0);
 
-	//outColor = vec4((diffuseLight + ambientLight) * fragColor, 1.0);
-	outColor = texture(texSampler, fragUv);
+	//outColor = texture(texSampler, fragUv);
+	outColor = vec4((diffuseLight + ambientLight) * vec3(texture(texSampler, fragUv)), 1.0);
 }

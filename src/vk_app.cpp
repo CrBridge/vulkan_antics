@@ -29,22 +29,20 @@ namespace va {
         globalSetLayout = VaDescriptorSetLayout::Builder(vaDevice)
             .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
 
         globalPool = VaDescriptorPool::Builder(vaDevice)
-            .setMaxSets(VaSwapChain::MAX_FRAMES_IN_FLIGHT)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VaSwapChain::MAX_FRAMES_IN_FLIGHT)
-            .build();
-        texturePool = VaDescriptorPool::Builder(vaDevice)
             .setMaxSets(VaSwapChain::MAX_FRAMES_IN_FLIGHT + 100)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VaSwapChain::MAX_FRAMES_IN_FLIGHT + 100)
+            .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VaSwapChain::MAX_FRAMES_IN_FLIGHT)
+            .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VaSwapChain::MAX_FRAMES_IN_FLIGHT)
             .build();
 
         globalUboBuffers.resize(VaSwapChain::MAX_FRAMES_IN_FLIGHT);
         for (int i = 0; i < globalUboBuffers.size(); i++) {
             globalUboBuffers[i] = std::make_unique<VaBuffer>(
                 vaDevice,
-                sizeof(GlobalUbo),
+                sizeof(GlobalUbo) + 100,
                 1,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -52,15 +50,18 @@ namespace va {
             globalUboBuffers[i]->map();
         }
 
-        defaultTexture = std::make_shared<VaImage>(vaDevice, texturePool, "textures/Debugempty.png");
+        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
+		cubemap = std::make_shared<VaCubemap>(vaDevice);
 
         globalDescriptorSets.resize(VaSwapChain::MAX_FRAMES_IN_FLIGHT);
         for (int i = 0; i < globalDescriptorSets.size(); i++) {
             auto bufferInfo = globalUboBuffers[i]->descriptorInfo();
             auto imageInfo = defaultTexture->getInfo();
+			auto cubemapInfo = cubemap->getInfo();
             VaDescriptorWriter(*globalSetLayout, *globalPool)
                 .writeBuffer(0, &bufferInfo)
                 .writeImage(1, &imageInfo)
+                .writeImage(2, &cubemapInfo)
                 .build(globalDescriptorSets[i]);
         }
 	    loadGameObjects();
@@ -70,6 +71,7 @@ namespace va {
 
 	void VkApp::run() {
 		VaRenderSystem renderSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
+
         VaCamera camera{};
 
         auto viewerObject = VaGameObject::createGameObject();
@@ -98,7 +100,7 @@ namespace va {
 
 			if (auto commandBuffer = vaRenderer.beginFrame()) {
                 int frameIndex = vaRenderer.getFrameIndex();
-                FrameInfo frameInfo{ frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects };
+                FrameInfo frameInfo{ frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, cubemap };
 
                 GlobalUbo ubo{};
                 ubo.projectionView = camera.getProjection() * camera.getView();
@@ -107,6 +109,7 @@ namespace va {
 
 				vaRenderer.beginSwapChainRenderPass(commandBuffer);
 				renderSystem.renderGameObjects(frameInfo);
+                renderSystem.renderSkybox(frameInfo);
 				vaRenderer.endSwapChainRenderPass(commandBuffer);
 				vaRenderer.endFrame();
 			}
@@ -117,7 +120,7 @@ namespace va {
 
 	void VkApp::loadGameObjects() {
         std::shared_ptr<VaModel> roomModel = VaModel::createModelFromFile(vaDevice, "models/viking_room.obj");
-		std::shared_ptr<VaImage> roomTexture = VaImage::createImageFromFile(vaDevice, texturePool, "textures/viking_room.png");
+		std::shared_ptr<VaImage> roomTexture = VaImage::createImageFromFile(vaDevice, globalPool, "textures/viking_room.png");
         auto room = VaGameObject::createGameObject();
         room.model = roomModel;
 		room.texture = roomTexture;
@@ -134,7 +137,7 @@ namespace va {
         gameObjects.emplace(vase.getId(), std::move(vase));
 
         std::shared_ptr<VaModel> floorModel = VaModel::createModelFromFile(vaDevice, "models/quad.obj");
-        std::shared_ptr<VaImage> floorTexture = VaImage::createImageFromFile(vaDevice, texturePool, "textures/statue.jpg");
+        std::shared_ptr<VaImage> floorTexture = VaImage::createImageFromFile(vaDevice, globalPool, "textures/statue.jpg");
         auto floor = VaGameObject::createGameObject();
         floor.model = floorModel;
         floor.texture = floorTexture;
@@ -146,10 +149,12 @@ namespace va {
             VkDescriptorSet descriptorSet;
 
             auto textureInfo = (gameObject.texture != nullptr) ? gameObject.texture->getInfo() : defaultTexture->getInfo();
+            auto cubemapInfo = cubemap->getInfo();
 
-            VaDescriptorWriter(*globalSetLayout, *texturePool)
+            VaDescriptorWriter(*globalSetLayout, *globalPool)
                 .writeBuffer(0, &globalUboBuffers[0]->descriptorInfo())
                 .writeImage(1, &textureInfo)
+                .writeImage(2, &cubemapInfo)
                 .build(descriptorSet);
 
             gameObject.descriptorSet = descriptorSet;

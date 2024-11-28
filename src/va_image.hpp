@@ -20,7 +20,6 @@ namespace va {
 		}
 
 		VkDescriptorImageInfo getInfo() const { return imageDescriptorInfo; }
-		const VkDescriptorSet& getDescriptor() const { return descriptorSet; }
 
 	private:
 		VaDevice& vaDevice;
@@ -29,10 +28,7 @@ namespace va {
 		VkDeviceMemory textureImageMemory;
 		VkImageView textureImageView = nullptr;
 		VkSampler textureSampler = nullptr;
-		VkFormat textureImageFormat;
 		VkDescriptorImageInfo imageDescriptorInfo;
-		VkDescriptorSet descriptorSet;
-		VkDescriptorSetLayout descriptorSetLayout;
 
 		void createTextureImage(const std::string& filepath);
 		void createImage(

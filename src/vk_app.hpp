@@ -5,6 +5,7 @@
 #include "va_game_object.hpp"
 #include "va_renderer.hpp"
 #include "va_descriptors.hpp"
+#include "va_cubemap.hpp"
 
 #include <memory>
 #include <vector>
@@ -31,10 +32,10 @@ namespace va {
 		std::vector<std::unique_ptr<VaBuffer>> globalUboBuffers;
 		std::unique_ptr<VaDescriptorSetLayout> globalSetLayout{};
 		std::vector<VkDescriptorSet> globalDescriptorSets;
-		std::unique_ptr<VaDescriptorPool> globalPool{};
-		std::shared_ptr<VaDescriptorPool> texturePool{};
+		std::shared_ptr<VaDescriptorPool> globalPool{};
 		VaGameObject::Map gameObjects;
 		std::shared_ptr<VaImage> defaultTexture{};
+		std::shared_ptr<VaCubemap> cubemap{};
 
 		void loadGameObjects();
 	};
