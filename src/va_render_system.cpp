@@ -19,7 +19,6 @@ namespace va {
 		createPipelineLayout(globalSetLayout);
 		createPipeline(renderPass);
 		createSkyboxPipeline(renderPass);
-		createSkyboxGeo();
 	}
 
 	VaRenderSystem::~VaRenderSystem() {
@@ -57,6 +56,15 @@ namespace va {
 
 		PipelineConfigInfo pipelineConfig{};
 		VaPipeline::defaultPipelineConfigInfo(pipelineConfig);
+
+		auto bindingDescriptions = VaModel::Vertex::getBindingDescriptions();
+		auto attributeDescriptions = VaModel::Vertex::getAttributeDescriptions();
+		pipelineConfig.vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		pipelineConfig.vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+		pipelineConfig.vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
+		pipelineConfig.vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		pipelineConfig.vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
 		vaPipeline = std::make_unique<VaPipeline>(
@@ -74,10 +82,18 @@ namespace va {
 		VaPipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
+
+		pipelineConfig.vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		pipelineConfig.vertexInputInfo.vertexBindingDescriptionCount = 0;
+		pipelineConfig.vertexInputInfo.pVertexBindingDescriptions = nullptr;
+		pipelineConfig.vertexInputInfo.vertexAttributeDescriptionCount = 0;
+		pipelineConfig.vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_FALSE;
-		pipelineConfig.depthStencilInfo.depthTestEnable = VK_TRUE;
+		pipelineConfig.depthStencilInfo.depthTestEnable = VK_FALSE;
 		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+
 		skyboxPipeline = std::make_unique<VaPipeline>(
 			vaDevice,
 			"shaders/skybox_vert.spv",
@@ -138,71 +154,15 @@ namespace va {
 			0, nullptr
 		);
 
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(frameInfo.commandBuffer, 0, 1, &skyboxVertexBuffer, offsets);
-
-		vkCmdDraw(frameInfo.commandBuffer, 36, 1, 0, 0);
-	}
-
-	void VaRenderSystem::createSkyboxGeo() {
-		glm::vec3 skyboxVertices[] = {
-			// Front face
-			glm::vec3(-1.0f, -1.0f,  1.0f),
-			glm::vec3(1.0f, -1.0f,  1.0f),
-			glm::vec3(1.0f,  1.0f,  1.0f),
-			glm::vec3(-1.0f,  1.0f,  1.0f),
-
-			// Back face
-			glm::vec3(-1.0f, -1.0f, -1.0f),
-			glm::vec3(-1.0f,  1.0f, -1.0f),
-			glm::vec3(1.0f,  1.0f, -1.0f),
-			glm::vec3(1.0f, -1.0f, -1.0f),
-
-			// Left face
-			glm::vec3(-1.0f, -1.0f, -1.0f),
-			glm::vec3(-1.0f, -1.0f,  1.0f),
-			glm::vec3(-1.0f,  1.0f,  1.0f),
-			glm::vec3(-1.0f,  1.0f, -1.0f),
-
-			// Right face
-			glm::vec3(1.0f, -1.0f, -1.0f),
-			glm::vec3(1.0f,  1.0f, -1.0f),
-			glm::vec3(1.0f,  1.0f,  1.0f),
-			glm::vec3(1.0f, -1.0f,  1.0f),
-
-			// Top face
-			glm::vec3(-1.0f,  1.0f, -1.0f),
-			glm::vec3(-1.0f,  1.0f,  1.0f),
-			glm::vec3(1.0f,  1.0f,  1.0f),
-			glm::vec3(1.0f,  1.0f, -1.0f),
-
-			// Bottom face
-			glm::vec3(-1.0f, -1.0f, -1.0f),
-			glm::vec3(1.0f, -1.0f, -1.0f),
-			glm::vec3(1.0f, -1.0f,  1.0f),
-			glm::vec3(-1.0f, -1.0f,  1.0f)
-		};
-
-		// Create the vertex buffer for the skybox
-		VkBuffer skyboxVertexBuffer;
-		VkDeviceMemory skyboxVertexBufferMemory;
-
-		vaDevice.createBuffer(
-			sizeof(skyboxVertices),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			skyboxVertexBuffer,
-			skyboxVertexBufferMemory
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			1, 1,
+			&frameInfo.globalDescriptorSet,
+			0, nullptr
 		);
 
-		// Map the memory and copy the vertex data
-		void* data;
-		vkMapMemory(vaDevice.device(), skyboxVertexBufferMemory, 0, sizeof(skyboxVertices), 0, &data);
-		memcpy(data, skyboxVertices, sizeof(skyboxVertices));
-		vkUnmapMemory(vaDevice.device(), skyboxVertexBufferMemory);
-
-		// Store the buffer and its memory for later use
-		this->skyboxVertexBuffer = skyboxVertexBuffer;
-		this->skyboxVertexBufferMemory = skyboxVertexBufferMemory;
+		vkCmdDraw(frameInfo.commandBuffer, 6, 1, 0, 0);
 	}
 }

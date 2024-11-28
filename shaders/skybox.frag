@@ -10,4 +10,5 @@ void main() {
     // Use the normalized direction to sample the cubemap
     vec3 direction = normalize(fragDirection);
     outColor = texture(skyboxSampler, direction);
+    //outColor = vec4(1.0, 1.0, 1.0, 1.0);
 }

@@ -14,6 +14,5 @@ namespace va {
 		VaCamera& camera;
 		VkDescriptorSet globalDescriptorSet;
 		VaGameObject::Map& gameObjects;
-		std::shared_ptr<VaCubemap> cubemap;
 	};
 }

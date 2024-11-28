@@ -19,7 +19,8 @@
 
 namespace va {
     struct GlobalUbo {
-        alignas(16) glm::mat4 projectionView{ 1.0f };
+        alignas(16) glm::mat4 view{ 1.0f };
+        alignas(16) glm::mat4 projection{ 1.0f };
         alignas(16) glm::vec4 ambientLightColor{ 1.0f, 1.0f, 1.0f, 0.02f };
         alignas(16) glm::vec3 lightPosition{ -1.0f };
         alignas(16) glm::vec4 lightColor{ 1.0f };
@@ -100,16 +101,17 @@ namespace va {
 
 			if (auto commandBuffer = vaRenderer.beginFrame()) {
                 int frameIndex = vaRenderer.getFrameIndex();
-                FrameInfo frameInfo{ frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, cubemap };
+                FrameInfo frameInfo{ frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects };
 
                 GlobalUbo ubo{};
-                ubo.projectionView = camera.getProjection() * camera.getView();
+                ubo.view = camera.getView();
+                ubo.projection = camera.getProjection();
                 globalUboBuffers[frameIndex]->writeToBuffer(&ubo);
                 globalUboBuffers[frameIndex]->flush();
 
-				vaRenderer.beginSwapChainRenderPass(commandBuffer);
-				renderSystem.renderGameObjects(frameInfo);
+                vaRenderer.beginSwapChainRenderPass(commandBuffer);
                 renderSystem.renderSkybox(frameInfo);
+				renderSystem.renderGameObjects(frameInfo);
 				vaRenderer.endSwapChainRenderPass(commandBuffer);
 				vaRenderer.endFrame();
 			}

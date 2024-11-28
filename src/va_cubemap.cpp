@@ -33,12 +33,12 @@ namespace va {
 		stbi_uc* skyboxPixels[6];
 
 		std::array<std::string, 6> skyboxPaths = {
+			"textures/skybox/skycube-right.png",
+			"textures/skybox/skycube-left.png",
+			"textures/skybox/skycube-down.png",
+			"textures/skybox/skycube-up.png",
 			"textures/skybox/skycube-front.png",
 			"textures/skybox/skycube-back.png",
-			"textures/skybox/skycube-up.png",
-			"textures/skybox/skycube-down.png",
-			"textures/skybox/skycube-right.png",
-			"textures/skybox/skycube-left.png"
 		};
 
 		for (int i = 0; i < 6; i++) {
@@ -71,19 +71,21 @@ namespace va {
 			cubemapImage,
 			VK_FORMAT_R8G8B8A8_SRGB,
 			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			6
 		);
 		vaDevice.copyBufferToImage(
 			stagingBuffer.getBuffer(),
 			cubemapImage,
 			static_cast<uint32_t>(texWidth),
-			static_cast<uint32_t>(texHeight), 1
+			static_cast<uint32_t>(texHeight), 6
 		);
 		vaDevice.transitionImageLayout(
 			cubemapImage,
 			VK_FORMAT_R8G8B8A8_SRGB,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			6
 		);
 	}
 

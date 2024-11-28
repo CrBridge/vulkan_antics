@@ -36,6 +36,5 @@ namespace va {
 		void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
 		void createPipeline(VkRenderPass renderPass);
 		void createSkyboxPipeline(VkRenderPass renderPass);
-		void createSkyboxGeo();
 	};
 }

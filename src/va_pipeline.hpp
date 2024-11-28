@@ -12,6 +12,7 @@ namespace va {
 		PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
 
 		VkPipelineViewportStateCreateInfo viewportInfo;
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo;
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
 		VkPipelineRasterizationStateCreateInfo rasterizationInfo;
 		VkPipelineMultisampleStateCreateInfo multisampleInfo;
