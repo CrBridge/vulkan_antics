@@ -1,6 +1,6 @@
 #pragma once
 
-#include "va_model.hpp"
+#include "models_meshes/va_model.hpp"
 #include "va_image.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>

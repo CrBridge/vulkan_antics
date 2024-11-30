@@ -38,5 +38,6 @@ namespace va {
 		std::shared_ptr<VaCubemap> cubemap{};
 
 		void loadGameObjects();
+		void initTerrain();
 	};
 }

@@ -18,7 +18,6 @@ namespace va {
 	VaRenderSystem::VaRenderSystem(VaDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : vaDevice{ device } {
 		createPipelineLayout(globalSetLayout);
 		createPipeline(renderPass);
-		createSkyboxPipeline(renderPass);
 	}
 
 	VaRenderSystem::~VaRenderSystem() {
@@ -75,33 +74,6 @@ namespace va {
 		);
 	}
 
-	void VaRenderSystem::createSkyboxPipeline(VkRenderPass renderPass) {
-		assert(pipelineLayout != nullptr && "cannot create pipeline before pipeline layout");
-
-		PipelineConfigInfo pipelineConfig{};
-		VaPipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.renderPass = renderPass;
-		pipelineConfig.pipelineLayout = pipelineLayout;
-
-		pipelineConfig.vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		pipelineConfig.vertexInputInfo.vertexBindingDescriptionCount = 0;
-		pipelineConfig.vertexInputInfo.pVertexBindingDescriptions = nullptr;
-		pipelineConfig.vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		pipelineConfig.vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-
-		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_FALSE;
-		pipelineConfig.depthStencilInfo.depthTestEnable = VK_FALSE;
-		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
-
-		skyboxPipeline = std::make_unique<VaPipeline>(
-			vaDevice,
-			"shaders/skybox_vert.spv",
-			"shaders/skybox_frag.spv",
-			pipelineConfig
-		);
-	}
-
 	void VaRenderSystem::renderGameObjects(FrameInfo& frameInfo) {
 		vaPipeline->bind(frameInfo.commandBuffer);
 
@@ -140,29 +112,5 @@ namespace va {
 			obj.model->bind(frameInfo.commandBuffer);
 			obj.model->draw(frameInfo.commandBuffer);
 		}
-	}
-
-	void VaRenderSystem::renderSkybox(FrameInfo& frameInfo) {
-		skyboxPipeline->bind(frameInfo.commandBuffer);
-
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			0, 1,
-			&frameInfo.globalDescriptorSet,
-			0, nullptr
-		);
-
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			1, 1,
-			&frameInfo.globalDescriptorSet,
-			0, nullptr
-		);
-
-		vkCmdDraw(frameInfo.commandBuffer, 6, 1, 0, 0);
 	}
 }

@@ -1,6 +1,11 @@
 #include "vk_app.hpp"
 
-#include "va_render_system.hpp"
+#include "render_systems/va_render_system.hpp"
+#include "render_systems/va_billboard_system.hpp"
+#include "render_systems/va_skybox_system.hpp"
+
+#include "models_meshes/va_terrain.hpp"
+
 #include "va_camera.hpp"
 #include "va_controller.hpp"
 #include "va_buffer.hpp"
@@ -21,9 +26,9 @@ namespace va {
     struct GlobalUbo {
         alignas(16) glm::mat4 view{ 1.0f };
         alignas(16) glm::mat4 projection{ 1.0f };
-        alignas(16) glm::vec4 ambientLightColor{ 1.0f, 1.0f, 1.0f, 0.02f };
+        alignas(16) glm::vec4 ambientLightColor{ 0.2f, 0.19f, 0.29f, 0.62f };
         alignas(16) glm::vec3 lightPosition{ -1.0f };
-        alignas(16) glm::vec4 lightColor{ 1.0f };
+        alignas(16) glm::vec4 lightColor{ 1.0f, 1.0f, 1.0f, 1.0f };
     };
 
 	VkApp::VkApp() {
@@ -43,7 +48,7 @@ namespace va {
         for (int i = 0; i < globalUboBuffers.size(); i++) {
             globalUboBuffers[i] = std::make_unique<VaBuffer>(
                 vaDevice,
-                sizeof(GlobalUbo) + 100,
+                sizeof(GlobalUbo),
                 1,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -51,27 +56,27 @@ namespace va {
             globalUboBuffers[i]->map();
         }
 
-        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
-		cubemap = std::make_shared<VaCubemap>(vaDevice);
+        cubemap = std::make_shared<VaCubemap>(vaDevice);
 
         globalDescriptorSets.resize(VaSwapChain::MAX_FRAMES_IN_FLIGHT);
         for (int i = 0; i < globalDescriptorSets.size(); i++) {
             auto bufferInfo = globalUboBuffers[i]->descriptorInfo();
-            auto imageInfo = defaultTexture->getInfo();
 			auto cubemapInfo = cubemap->getInfo();
             VaDescriptorWriter(*globalSetLayout, *globalPool)
                 .writeBuffer(0, &bufferInfo)
-                .writeImage(1, &imageInfo)
                 .writeImage(2, &cubemapInfo)
                 .build(globalDescriptorSets[i]);
         }
-	    loadGameObjects();
+        initTerrain();
+	    //loadGameObjects();
 	}
 
 	VkApp::~VkApp() {}
 
 	void VkApp::run() {
 		VaRenderSystem renderSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
+        VaBillboardSystem billboardSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
+		VaSkyboxSystem skyboxSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
 
         VaCamera camera{};
 
@@ -97,7 +102,7 @@ namespace va {
             camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
             float aspect = vaRenderer.getAspectRatio();
-            camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
+            camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 2000.0f);
 
 			if (auto commandBuffer = vaRenderer.beginFrame()) {
                 int frameIndex = vaRenderer.getFrameIndex();
@@ -110,13 +115,13 @@ namespace va {
                 globalUboBuffers[frameIndex]->flush();
 
                 vaRenderer.beginSwapChainRenderPass(commandBuffer);
-                renderSystem.renderSkybox(frameInfo);
+                skyboxSystem.renderSkybox(frameInfo);
 				renderSystem.renderGameObjects(frameInfo);
+                //billboardSystem.renderBillboard(frameInfo);
 				vaRenderer.endSwapChainRenderPass(commandBuffer);
 				vaRenderer.endFrame();
 			}
 		}
-
 		vkDeviceWaitIdle(vaDevice.device());
 	}
 
@@ -147,19 +152,37 @@ namespace va {
         floor.transform.scale = 3.0f;
         gameObjects.emplace(floor.getId(), std::move(floor));
 
+        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
+        
         for (auto& [id, gameObject] : gameObjects) {
             VkDescriptorSet descriptorSet;
 
             auto textureInfo = (gameObject.texture != nullptr) ? gameObject.texture->getInfo() : defaultTexture->getInfo();
-            auto cubemapInfo = cubemap->getInfo();
-
             VaDescriptorWriter(*globalSetLayout, *globalPool)
-                .writeBuffer(0, &globalUboBuffers[0]->descriptorInfo())
                 .writeImage(1, &textureInfo)
-                .writeImage(2, &cubemapInfo)
                 .build(descriptorSet);
 
             gameObject.descriptorSet = descriptorSet;
         }
 	}
+
+    void VkApp::initTerrain() {
+		std::shared_ptr<VaModel> terrainModel = VaTerrain::createTerrainFromFile(vaDevice, "textures/heightmaps/iceland_heightmap.png");
+        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
+        auto terrain = VaGameObject::createGameObject();
+		terrain.model = terrainModel;
+		terrain.texture = defaultTexture;
+        gameObjects.emplace(terrain.getId(), std::move(terrain));
+
+        for (auto& [id, gameObject] : gameObjects) {
+            VkDescriptorSet descriptorSet;
+
+            auto textureInfo = (gameObject.texture != nullptr) ? gameObject.texture->getInfo() : defaultTexture->getInfo();
+            VaDescriptorWriter(*globalSetLayout, *globalPool)
+                .writeImage(1, &textureInfo)
+                .build(descriptorSet);
+
+            gameObject.descriptorSet = descriptorSet;
+        }
+    }
 }

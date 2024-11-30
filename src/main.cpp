@@ -4,6 +4,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "models_meshes/va_terrain.hpp"
+
 int main()
 {
     va::VkApp app{};

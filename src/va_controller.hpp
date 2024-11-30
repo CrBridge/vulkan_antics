@@ -23,7 +23,7 @@ namespace va {
         void mouseControl(GLFWwindow* window, float dt, VaGameObject& gameObject);
 
         KeyMappings keys{};
-        float moveSpeed{ 3.f };
+        float moveSpeed{ 300.f };
         float lookSpeed{ 1.5f };
         bool firstMouse{ true };
     };

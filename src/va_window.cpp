@@ -21,6 +21,7 @@ namespace va {
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, frameBufferResizedCallback);
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		glfwMaximizeWindow(window);
 	}
 
 	void VaWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {
