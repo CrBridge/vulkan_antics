@@ -15,7 +15,7 @@ namespace va {
 		}
 
 		VaModel::Builder builder{};
-		float yScale = 64.0f / 256.0f, yShift = 16.0f;
+		float yScale = 64.0f / 256.0f, yShift = 32.0f;
 
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
@@ -35,8 +35,8 @@ namespace va {
 			}
 		}
 
-		for (unsigned int i = 0; i < height - 1; i++) {
-			for (unsigned int j = 0; j < width - 1; j++) {
+		for (int i = 0; i < height - 1; i++) {
+			for (int j = 0; j < width - 1; j++) {
 				builder.indices.push_back(j + width * i);
 				builder.indices.push_back(j + width * (i + 1));
 				builder.indices.push_back((j + 1) + width * i);

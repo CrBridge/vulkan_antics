@@ -25,6 +25,12 @@ namespace va {
 		glm::vec3 color{};
 		TransformComponent transform{};
 
+		// With my setup right now textures need to be stored inside the game object
+		// I used multiple textures for terrain so here they are.
+		// Maybe It could store a vector instead?
+		std::shared_ptr<VaImage> terrainTexture1{};
+		std::shared_ptr<VaImage> terrainTexture2{};
+
 		using id_t = unsigned int;
 		using Map = std::unordered_map<id_t, VaGameObject>;
 

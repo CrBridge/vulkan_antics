@@ -26,16 +26,18 @@ namespace va {
     struct GlobalUbo {
         alignas(16) glm::mat4 view{ 1.0f };
         alignas(16) glm::mat4 projection{ 1.0f };
-        alignas(16) glm::vec4 ambientLightColor{ 0.2f, 0.19f, 0.29f, 0.62f };
+        alignas(16) glm::vec4 ambientLightColor{ 0.4f, 0.2f, 0.6f, 0.92f };
         alignas(16) glm::vec3 lightPosition{ -1.0f };
-        alignas(16) glm::vec4 lightColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        alignas(16) glm::vec4 lightColor{ 1.0f, 1.0f, 1.0f, 1.0f }; //TODO: get rid of this and go back to directional light
     };
 
 	VkApp::VkApp() {
         globalSetLayout = VaDescriptorSetLayout::Builder(vaDevice)
             .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-            .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) //skybox
+            .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) //obj textures / debug_missing tex
+            .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) //
+            .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // terrain textures
             .build();
 
         globalPool = VaDescriptorPool::Builder(vaDevice)
@@ -56,6 +58,7 @@ namespace va {
             globalUboBuffers[i]->map();
         }
 
+        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
         cubemap = std::make_shared<VaCubemap>(vaDevice);
 
         globalDescriptorSets.resize(VaSwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -64,7 +67,7 @@ namespace va {
 			auto cubemapInfo = cubemap->getInfo();
             VaDescriptorWriter(*globalSetLayout, *globalPool)
                 .writeBuffer(0, &bufferInfo)
-                .writeImage(2, &cubemapInfo)
+                .writeImage(1, &cubemapInfo)
                 .build(globalDescriptorSets[i]);
         }
         initTerrain();
@@ -75,7 +78,7 @@ namespace va {
 
 	void VkApp::run() {
 		VaRenderSystem renderSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
-        VaBillboardSystem billboardSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
+        //VaBillboardSystem billboardSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
 		VaSkyboxSystem skyboxSystem{ vaDevice, vaRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
 
         VaCamera camera{};
@@ -102,7 +105,7 @@ namespace va {
             camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
             float aspect = vaRenderer.getAspectRatio();
-            camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 2000.0f);
+            camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 15000.0f);
 
 			if (auto commandBuffer = vaRenderer.beginFrame()) {
                 int frameIndex = vaRenderer.getFrameIndex();
@@ -151,15 +154,13 @@ namespace va {
         floor.transform.translation = { 0.0f, 0.5f, 0.0f };
         floor.transform.scale = 3.0f;
         gameObjects.emplace(floor.getId(), std::move(floor));
-
-        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
         
         for (auto& [id, gameObject] : gameObjects) {
             VkDescriptorSet descriptorSet;
 
             auto textureInfo = (gameObject.texture != nullptr) ? gameObject.texture->getInfo() : defaultTexture->getInfo();
             VaDescriptorWriter(*globalSetLayout, *globalPool)
-                .writeImage(1, &textureInfo)
+                .writeImage(2, &textureInfo)
                 .build(descriptorSet);
 
             gameObject.descriptorSet = descriptorSet;
@@ -167,19 +168,30 @@ namespace va {
 	}
 
     void VkApp::initTerrain() {
-		std::shared_ptr<VaModel> terrainModel = VaTerrain::createTerrainFromFile(vaDevice, "textures/heightmaps/iceland_heightmap.png");
-        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
+		std::shared_ptr<VaModel> terrainModel = VaTerrain::createTerrainFromFile(vaDevice, "textures/terrain/iceland_heightmap.png");
+        std::shared_ptr<VaImage> terrain1 = VaImage::createImageFromFile(vaDevice, globalPool, "textures/terrain/terrain_4.png");
+        std::shared_ptr<VaImage> terrain2 = VaImage::createImageFromFile(vaDevice, globalPool, "textures/terrain/terrain_5.png");
         auto terrain = VaGameObject::createGameObject();
 		terrain.model = terrainModel;
-		terrain.texture = defaultTexture;
+		terrain.terrainTexture1 = terrain1;
+        terrain.terrainTexture2 = terrain2;
+        // I need a solution for this whole scale thing. Right now, you can't scale by individual axis, because of normal
+        // calculation shenanigans. But this means scaling the terrain is also gonna scale it vertically, messes with
+        // the terrain textures, as they are based on y position. Really, I would wanna only scale it by x and z axis.
+        // temp solution for now could be for the createTerrain function to take in a x-scale, y-scale param,
+        // and adjust it that way
+        // Honestly, uniform scaling here isn't all that bad. The main issue is that the height constraints are hardcoded
+        // in the fragment shader. I could pass the values in with a descriptor, but I'm trying to minimize using those
+        //terrain.transform.scale = 100.0f;
         gameObjects.emplace(terrain.getId(), std::move(terrain));
 
         for (auto& [id, gameObject] : gameObjects) {
             VkDescriptorSet descriptorSet;
+            VaDescriptorWriter writer(*globalSetLayout, *globalPool);
 
-            auto textureInfo = (gameObject.texture != nullptr) ? gameObject.texture->getInfo() : defaultTexture->getInfo();
             VaDescriptorWriter(*globalSetLayout, *globalPool)
-                .writeImage(1, &textureInfo)
+                .writeImage(3, &gameObject.terrainTexture1->getInfo())
+                .writeImage(4, &gameObject.terrainTexture2->getInfo())
                 .build(descriptorSet);
 
             gameObject.descriptorSet = descriptorSet;
