@@ -34,7 +34,7 @@ namespace va {
 			std::vector<Vertex> vertices{};
 			std::vector<uint32_t> indices{};
 
-			void loadModel(const std::string& filepath);
+			void loadModel(const std::string& filepath, float uvWrapScale);
 		};
 
 		VaModel(VaDevice& device, const VaModel::Builder& builder);
@@ -44,7 +44,7 @@ namespace va {
 		VaModel(const VaModel&) = delete;
 		VaModel& operator=(const VaModel&) = delete;
 
-		static std::unique_ptr<VaModel> createModelFromFile(VaDevice& device, const std::string& filepath);
+		static std::unique_ptr<VaModel> createModelFromFile(VaDevice& device, const std::string& filepath, float uvWrapScale);
 
 		void bind(VkCommandBuffer commandBuffer);
 		void draw(VkCommandBuffer commandBuffer);

@@ -29,7 +29,7 @@ namespace va {
 					(-width / 2.0f + width * j / (float)width)
 				};
 
-				vertex.normal = { 0.0f, 1.0f, 0.0f };
+				vertex.normal = { 0.0f, -1.0f, 0.0f };
 				vertex.uv = { j / (float)width, i / (float)height };
 				builder.vertices.push_back(vertex);
 			}

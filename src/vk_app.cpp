@@ -25,17 +25,20 @@
 namespace va {
     struct GlobalUbo {
         alignas(16) glm::mat4 view{ 1.0f };
+        alignas(16) glm::mat4 inverseView{ 1.0f };
         alignas(16) glm::mat4 projection{ 1.0f };
-        alignas(16) glm::vec4 ambientLightColor{ 0.4f, 0.2f, 0.6f, 0.92f };
-        alignas(16) glm::vec3 lightPosition{ -1.0f };
-        alignas(16) glm::vec4 lightColor{ 1.0f, 1.0f, 1.0f, 1.0f }; //TODO: get rid of this and go back to directional light
+        // When testing terrain rendering, this ambient aint used at all, since for now I'm just defaulting the terrain normals all straight up
+        //  so they all get the directional light equally
+        alignas(16) glm::vec4 ambientLightColor{ 1.0f, 1.0f, 1.0f, 0.0f };
+        alignas(16) glm::vec4 lightColor{ 0.4f, 0.2f, 0.6f, 1.0f };
+        alignas(16) glm::vec3 directionalLight{ 1.0f, -1.0f, -2.0f };
     };
 
 	VkApp::VkApp() {
         globalSetLayout = VaDescriptorSetLayout::Builder(vaDevice)
             .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) //skybox
-            .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) //obj textures / debug_missing tex
+            .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) //obj textures
             .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) //
             .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // terrain textures
             .build();
@@ -58,7 +61,7 @@ namespace va {
             globalUboBuffers[i]->map();
         }
 
-        defaultTexture = std::make_shared<VaImage>(vaDevice, globalPool, "textures/Debugempty.png");
+        defaultTexture = std::make_shared<VaImage>(vaDevice, "textures/Debugempty.png");
         cubemap = std::make_shared<VaCubemap>(vaDevice);
 
         globalDescriptorSets.resize(VaSwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -113,6 +116,7 @@ namespace va {
 
                 GlobalUbo ubo{};
                 ubo.view = camera.getView();
+                ubo.inverseView = camera.getInverseView();
                 ubo.projection = camera.getProjection();
                 globalUboBuffers[frameIndex]->writeToBuffer(&ubo);
                 globalUboBuffers[frameIndex]->flush();
@@ -124,13 +128,15 @@ namespace va {
 				vaRenderer.endSwapChainRenderPass(commandBuffer);
 				vaRenderer.endFrame();
 			}
+            // something to do with the command pool is causing best-practice complaints. Gotta look into that
+            //vkResetCommandPool(vaDevice.device(), vaDevice.getCommandPool(), 0);
 		}
 		vkDeviceWaitIdle(vaDevice.device());
 	}
 
 	void VkApp::loadGameObjects() {
-        std::shared_ptr<VaModel> roomModel = VaModel::createModelFromFile(vaDevice, "models/viking_room.obj");
-		std::shared_ptr<VaImage> roomTexture = VaImage::createImageFromFile(vaDevice, globalPool, "textures/viking_room.png");
+        std::shared_ptr<VaModel> roomModel = VaModel::createModelFromFile(vaDevice, "models/viking_room.obj", 1.0f);
+		std::shared_ptr<VaImage> roomTexture = VaImage::createImageFromFile(vaDevice, "textures/viking_room.png");
         auto room = VaGameObject::createGameObject();
         room.model = roomModel;
 		room.texture = roomTexture;
@@ -139,21 +145,31 @@ namespace va {
         room.transform.rotation = { glm::radians(90.0f), 0.0f, glm::radians(180.0f) };
         gameObjects.emplace(room.getId(), std::move(room));
 
-        std::shared_ptr<VaModel> vaseModel = VaModel::createModelFromFile(vaDevice, "models/flat_vase.obj");
+        std::shared_ptr<VaModel> vaseModel = VaModel::createModelFromFile(vaDevice, "models/flat_vase.obj", 1.0f);
         auto vase = VaGameObject::createGameObject();
         vase.model = vaseModel;
         vase.transform.translation = { -2.0f, 0.5f, 0.0f };
         vase.transform.scale = 1.0f;
         gameObjects.emplace(vase.getId(), std::move(vase));
 
-        std::shared_ptr<VaModel> floorModel = VaModel::createModelFromFile(vaDevice, "models/quad.obj");
-        std::shared_ptr<VaImage> floorTexture = VaImage::createImageFromFile(vaDevice, globalPool, "textures/statue.jpg");
+        std::shared_ptr<VaModel> floorModel = VaModel::createModelFromFile(vaDevice, "models/quad.obj", 1.0f);
+        std::shared_ptr<VaImage> floorTexture = VaImage::createImageFromFile(vaDevice, "textures/terrain/terrain_3.png");
         auto floor = VaGameObject::createGameObject();
         floor.model = floorModel;
         floor.texture = floorTexture;
         floor.transform.translation = { 0.0f, 0.5f, 0.0f };
         floor.transform.scale = 3.0f;
         gameObjects.emplace(floor.getId(), std::move(floor));
+
+        std::shared_ptr<VaModel> crateModel = VaModel::createModelFromFile(vaDevice, "models/cube.obj", 1.0f);
+        std::shared_ptr<VaImage> crateTexture = VaImage::createImageFromFile(vaDevice, "textures/crate_diffuse.png");
+        auto crate = VaGameObject::createGameObject();
+        crate.model = crateModel;
+        crate.texture = crateTexture;
+        crate.transform.translation = { -0.5f, 0.3f, -2.0f };
+        crate.transform.scale = 0.2f;
+        crate.transform.rotation = { 0.0f, glm::radians(75.0f), 0.0f};
+        gameObjects.emplace(crate.getId(), std::move(crate));
         
         for (auto& [id, gameObject] : gameObjects) {
             VkDescriptorSet descriptorSet;
@@ -169,8 +185,8 @@ namespace va {
 
     void VkApp::initTerrain() {
 		std::shared_ptr<VaModel> terrainModel = VaTerrain::createTerrainFromFile(vaDevice, "textures/terrain/iceland_heightmap.png");
-        std::shared_ptr<VaImage> terrain1 = VaImage::createImageFromFile(vaDevice, globalPool, "textures/terrain/terrain_4.png");
-        std::shared_ptr<VaImage> terrain2 = VaImage::createImageFromFile(vaDevice, globalPool, "textures/terrain/terrain_5.png");
+        std::shared_ptr<VaImage> terrain1 = VaImage::createImageFromFile(vaDevice, "textures/terrain/terrain_4.png");
+        std::shared_ptr<VaImage> terrain2 = VaImage::createImageFromFile(vaDevice, "textures/terrain/terrain_5.png");
         auto terrain = VaGameObject::createGameObject();
 		terrain.model = terrainModel;
 		terrain.terrainTexture1 = terrain1;

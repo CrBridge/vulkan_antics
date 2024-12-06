@@ -4,10 +4,11 @@ layout (location = 0) out vec3 fragDirection;
 
 layout (set = 0, binding = 0) uniform GlobalUbo {
 	mat4 view;
+	mat4 inverseView;
 	mat4 projection;
 	vec4 ambientLightColor;
-	vec3 lightPosition;
 	vec4 lightColor;
+	vec3 directionalLight;
 } ubo;
 
 vec4 positions[6] = vec4[](

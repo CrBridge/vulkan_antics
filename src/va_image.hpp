@@ -9,21 +9,23 @@
 namespace va {
 	class VaImage {
 	public:
-		VaImage(VaDevice& device, std::shared_ptr<VaDescriptorPool> pool, const std::string& filepath);
+		VaImage(VaDevice& device, const std::string& filepath);
 		~VaImage();
 
 		VaImage(const VaImage&) = delete;
 		VaImage& operator=(const VaImage&) = delete;
 
-		static std::unique_ptr<VaImage> createImageFromFile(VaDevice& device, std::shared_ptr<VaDescriptorPool> pool, const std::string& filepath) {
-			return std::make_unique<VaImage>(device, pool, filepath);
+		static std::unique_ptr<VaImage> createImageFromFile(VaDevice& device, const std::string& filepath) {
+			return std::make_unique<VaImage>(device, filepath);
 		}
 
 		VkDescriptorImageInfo getInfo() const { return imageDescriptorInfo; }
 
 	private:
 		VaDevice& vaDevice;
-		std::shared_ptr<VaDescriptorPool> descriptorPool;
+		
+		uint32_t mipLevels;
+
 		VkImage textureImage;
 		VkDeviceMemory textureImageMemory;
 		VkImageView textureImageView = nullptr;
@@ -39,7 +41,8 @@ namespace va {
 			VkImageUsageFlags usage, 
 			VkMemoryPropertyFlags properties, 
 			VkImage& image, 
-			VkDeviceMemory& imageMemory
+			VkDeviceMemory& imageMemory,
+			uint32_t mipLevels
 		);
 		void createTextureImageView();
 		void createTextureSampler();

@@ -33,9 +33,9 @@ namespace va {
 	
 	VaModel::~VaModel() {}
 
-	std::unique_ptr<VaModel> VaModel::createModelFromFile(VaDevice& device, const std::string& filepath) {
+	std::unique_ptr<VaModel> VaModel::createModelFromFile(VaDevice& device, const std::string& filepath, float uvWrapScale) {
 		Builder builder{};
-		builder.loadModel(filepath);
+		builder.loadModel(filepath, uvWrapScale);
 
 		std::cout << filepath << " Vertex Count: " << builder.vertices.size() << '\n';
 
@@ -154,7 +154,7 @@ namespace va {
 		return attributeDescriptions;
 	}
 
-	void VaModel::Builder::loadModel(const std::string& filepath) {
+	void VaModel::Builder::loadModel(const std::string& filepath, float uvWrapScale) {
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
@@ -192,7 +192,7 @@ namespace va {
 				}
 
 				if (index.texcoord_index >= 0) {
-					vertex.uv = {
+					vertex.uv = glm::vec2{ uvWrapScale } * glm::vec2{
 						attrib.texcoords[2 * index.texcoord_index + 0],
 						attrib.texcoords[2 * index.texcoord_index + 1]
 					};

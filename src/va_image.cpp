@@ -12,8 +12,8 @@
 #endif
 
 namespace va {
-	VaImage::VaImage(VaDevice& device, std::shared_ptr<VaDescriptorPool> pool, const std::string& filepath) 
-		: vaDevice{ device }, descriptorPool{ pool } {
+	VaImage::VaImage(VaDevice& device, const std::string& filepath) 
+		: vaDevice{ device } {
 		createTextureImage(filepath);
 		createTextureImageView();
 		createTextureSampler();
@@ -35,6 +35,7 @@ namespace va {
 
 		stbi_uc* pixels = stbi_load(filepathAdj.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
+		mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
 		if (!pixels) {
 			throw std::runtime_error("failed to load texture image");
@@ -58,10 +59,11 @@ namespace va {
 			texHeight, 
 			VK_FORMAT_R8G8B8A8_SRGB, 
 			VK_IMAGE_TILING_OPTIMAL, 
-			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
 			textureImage, 
-			textureImageMemory
+			textureImageMemory,
+			mipLevels
 		);
 
 		vaDevice.transitionImageLayout(
@@ -69,7 +71,8 @@ namespace va {
 			VK_FORMAT_R8G8B8A8_SRGB, 
 			VK_IMAGE_LAYOUT_UNDEFINED, 
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1
+			1,
+			mipLevels
 		);
 		vaDevice.copyBufferToImage(
 			stagingBuffer.getBuffer(),
@@ -77,13 +80,15 @@ namespace va {
 			static_cast<uint32_t>(texWidth), 
 			static_cast<uint32_t>(texHeight), 1
 		);
-		vaDevice.transitionImageLayout(
+		/*vaDevice.transitionImageLayout(
 			textureImage, 
 			VK_FORMAT_R8G8B8A8_SRGB, 
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			1
-		);
+			1,
+			mipLevels
+		);*/
+		vaDevice.generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
 	}
 
 	void VaImage::createImage(
@@ -94,7 +99,8 @@ namespace va {
 		VkImageUsageFlags usage,
 		VkMemoryPropertyFlags properties,
 		VkImage& image,
-		VkDeviceMemory& imageMemory
+		VkDeviceMemory& imageMemory,
+		uint32_t mipLevels
 	) {
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -102,12 +108,12 @@ namespace va {
 		imageInfo.extent.width = width;
 		imageInfo.extent.height = height;
 		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
+		imageInfo.mipLevels = mipLevels;
 		imageInfo.arrayLayers = 1;
 		imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.tiling = tiling;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.usage = usage;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 		imageInfo.flags = 0;
@@ -123,7 +129,7 @@ namespace va {
 		viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.levelCount = mipLevels;
 		viewInfo.subresourceRange.baseArrayLayer = 0;
 		viewInfo.subresourceRange.layerCount = 1;
 
@@ -135,21 +141,24 @@ namespace va {
 	void VaImage::createTextureSampler() {
 		VkSamplerCreateInfo samplerInfo{};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
+		//samplerInfo.magFilter = VK_FILTER_LINEAR;
+		//samplerInfo.minFilter = VK_FILTER_LINEAR;
+		// using nearest for pixel-art look
+		samplerInfo.magFilter = VK_FILTER_NEAREST;
+		samplerInfo.minFilter = VK_FILTER_NEAREST;
 		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerInfo.anisotropyEnable = VK_TRUE;
 		samplerInfo.maxAnisotropy = vaDevice.properties.limits.maxSamplerAnisotropy;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
 		samplerInfo.unnormalizedCoordinates = VK_FALSE;
 		samplerInfo.compareEnable = VK_FALSE;
 		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 0.0f;
+		samplerInfo.minLod = static_cast<float>(mipLevels / 2);
+		samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
 
 		if (vkCreateSampler(vaDevice.device(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create texture sampler");
